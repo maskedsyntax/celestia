@@ -46,50 +46,69 @@
         }
 
         function animate() {
-            // Motion blur trail
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            // Trail effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const time = frames[currentFrame];
-            const points = simulationData[time];
-            
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-
-            // Auto-calculate scale based on point distribution
-            let maxDist = 0;
-            points.forEach(p => {
-                const d = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
-                if (d > maxDist) maxDist = d;
-            });
-            const targetScale = (Math.min(canvas.width, canvas.height) * 0.4) / (maxDist || 1);
-            scale = scale * 0.95 + targetScale * 0.05; // Smooth scale transition
-
-            points.forEach((p, i) => {
-                const x = cx + p[0] * scale;
-                const y = cy + p[1] * scale;
+            
+            // Loop / Crossfade logic
+            const transitionFrames = Math.floor(frames.length * 0.1); // 10% transition window
+            const fadeOutStart = frames.length - transitionFrames;
+            
+            function drawPoints(time, alpha = 1.0, isMain = true) {
+                const points = simulationData[time];
+                if (!points) return;
                 
-                // Color based on distance from center (cool galaxy effect)
-                const dist = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
-                const hue = 200 + (dist / maxDist) * 60; 
-                ctx.fillStyle = `hsla(${hue}, 80%, 80%, 0.8)`;
-                
-                ctx.beginPath();
-                ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-                ctx.fill();
-            });
+                // Scale logic (keep based on main simulation)
+                if (isMain) {
+                    let maxDist = 0;
+                    points.forEach(p => {
+                        const d = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
+                        if (d > maxDist) maxDist = d;
+                    });
+                    const targetScale = (Math.min(canvas.width, canvas.height) * 0.4) / (maxDist || 1);
+                    scale = scale * 0.98 + targetScale * 0.02;
+                }
 
-            status.innerText = `Time: ${time} | Objects: ${points.length} | Looping Simulation`;
+                points.forEach(p => {
+                    const x = cx + p[0] * scale;
+                    const y = cy + p[1] * scale;
+                    const dist = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
+                    const hue = 200 + (dist / 100) * 60;
+                    ctx.fillStyle = `hsla(${hue}, 80%, 80%, ${alpha * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
 
             if (playing) {
+                if (currentFrame >= fadeOutStart) {
+                    // We are in the transition zone
+                    const alpha = (currentFrame - fadeOutStart) / transitionFrames;
+                    
+                    // 1. Draw current frame fading out
+                    drawPoints(frames[currentFrame], 1.0 - alpha, true);
+                    
+                    // 2. Draw start of cycle fading in
+                    const loopFrame = currentFrame - fadeOutStart;
+                    drawPoints(frames[loopFrame], alpha, false);
+                } else {
+                    // Normal playback
+                    drawPoints(frames[currentFrame], 1.0, true);
+                }
+
                 currentFrame++;
                 if (currentFrame >= frames.length) {
-                    currentFrame = 0;
-                    // Flash effect on loop restart
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    currentFrame = transitionFrames; // Jump to point after fade-in
                 }
+            } else {
+                drawPoints(frames[currentFrame], 1.0, true);
             }
+
+            status.innerText = `N-Body | Objects: ${simulationData[frames[currentFrame]].length} | Infinite Seamless Loop`;
             requestAnimationFrame(animate);
         }
 

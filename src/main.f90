@@ -17,7 +17,7 @@ program celestia
   ! Simulation parameters
   G = 1.0_dp
   dt = 0.001_dp
-  total_time = 5.0_dp ! Increased from 0.5 to 5.0
+  total_time = 30.0_dp 
   steps = int(total_time / dt)
   n = 1000
   theta = 0.5_dp ! Barnes-Hut parameter
