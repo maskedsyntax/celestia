@@ -8,10 +8,12 @@ SRCS = $(SRC_DIR)/kinds.f90 \
        $(SRC_DIR)/particle.f90 \
        $(SRC_DIR)/tree.f90 \
        $(SRC_DIR)/physics.f90 \
+       $(SRC_DIR)/collisions.f90 \
+       $(SRC_DIR)/initial_conditions.f90 \
        $(SRC_DIR)/main.f90
 
 # Object files (in order of dependency)
-OBJS = kinds.o particle.o tree.o physics.o main.o
+OBJS = kinds.o particle.o tree.o physics.o collisions.o initial_conditions.o main.o
 
 TARGET = $(BIN_DIR)/celestia
 
@@ -36,7 +38,13 @@ tree.o: $(SRC_DIR)/tree.f90 kinds.o particle.o
 physics.o: $(SRC_DIR)/physics.f90 kinds.o particle.o tree.o
 	$(FC) $(FFLAGS) -c $<
 
-main.o: $(SRC_DIR)/main.f90 kinds.o particle.o physics.o
+collisions.o: $(SRC_DIR)/collisions.f90 kinds.o particle.o
+	$(FC) $(FFLAGS) -c $<
+
+initial_conditions.o: $(SRC_DIR)/initial_conditions.f90 kinds.o particle.o
+	$(FC) $(FFLAGS) -c $<
+
+main.o: $(SRC_DIR)/main.f90 kinds.o particle.o physics.o collisions.o initial_conditions.o
 	$(FC) $(FFLAGS) -c $<
 
 run: all

@@ -19,11 +19,13 @@ module physics
     integer :: i, n
 
     n = size(bodies)
-    ! Reset accelerations
+    ! Reset accelerations and traverse tree in parallel
+    !$omp parallel do private(i) shared(bodies, root, G, theta)
     do i = 1, n
        bodies(i)%acc = [0.0_dp, 0.0_dp, 0.0_dp]
        call traverse_tree(bodies(i), root, G, theta)
     end do
+    !$omp end parallel do
   end subroutine compute_forces_bh
 
   recursive subroutine traverse_tree(body, node, G, theta)
