@@ -16,11 +16,11 @@ program celestia
 
   ! Simulation parameters
   G = 1.0_dp
-  dt = 0.001_dp
-  total_time = 30.0_dp 
+  dt = 0.0005_dp ! Half the time step
+  total_time = 10.0_dp 
   steps = int(total_time / dt)
   n = 1000
-  theta = 0.5_dp ! Barnes-Hut parameter
+  theta = 0.7_dp ! More stable theta
 
   ! Setup initial conditions (Galaxy)
   call setup_galaxy(bodies, n, 100.0_dp, 1000.0_dp, G)

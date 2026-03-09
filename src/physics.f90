@@ -10,7 +10,7 @@ module physics
   public :: update_velocities
   public :: compute_total_energy
 
-  real(dp), parameter :: eps_sq = 0.1_dp**2 ! Softening length squared
+  real(dp), parameter :: eps_sq = 0.5_dp**2 ! Increased from 0.1 to 0.5 for stability
 
   contains
 

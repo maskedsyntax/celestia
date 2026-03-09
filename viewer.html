@@ -3,15 +3,15 @@
 <head>
     <title>Celestia N-Body Viewer</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; }
         canvas { display: block; }
         #info { position: absolute; top: 10px; left: 10px; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="info">
-        <h1>Celestia</h1>
-        <div id="status">Loading data...</div>
+        <h1>CELESTIA</h1>
+        <div id="status">Loading...</div>
     </div>
     <canvas id="canvas"></canvas>
     <script src="data.js"></script>
@@ -23,19 +23,16 @@
         let frames = [];
         let currentFrame = 0;
         let playing = true;
-        let scale = 1.0;
+        let scale = 3.5; // Fixed scale
 
         function init() {
             if (typeof simulationData === 'undefined') {
-                status.innerText = "Error: data.js not found. Run 'python3 to_js.py' first.";
+                status.innerText = "Error: data.js not found.";
                 return;
             }
             frames = Object.keys(simulationData).sort((a, b) => parseFloat(a) - parseFloat(b));
-            
             window.addEventListener('resize', resize);
-            window.addEventListener('keydown', e => {
-                if (e.code === 'Space') playing = !playing;
-            });
+            window.addEventListener('keydown', e => { if (e.code === 'Space') playing = !playing; });
             resize();
             animate();
         }
@@ -46,72 +43,29 @@
         }
 
         function animate() {
-            // Trail effect
+            // Clean trail - No ghosting
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            const time = frames[currentFrame];
+            const points = simulationData[time];
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-            
-            // Loop / Crossfade logic
-            const transitionFrames = Math.floor(frames.length * 0.1); // 10% transition window
-            const fadeOutStart = frames.length - transitionFrames;
-            
-            function drawPoints(time, alpha = 1.0, isMain = true) {
-                const points = simulationData[time];
-                if (!points) return;
-                
-                // Scale logic (keep based on main simulation)
-                if (isMain) {
-                    let maxDist = 0;
-                    points.forEach(p => {
-                        const d = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
-                        if (d > maxDist) maxDist = d;
-                    });
-                    const targetScale = (Math.min(canvas.width, canvas.height) * 0.4) / (maxDist || 1);
-                    scale = scale * 0.98 + targetScale * 0.02;
-                }
 
-                points.forEach(p => {
-                    const x = cx + p[0] * scale;
-                    const y = cy + p[1] * scale;
-                    const dist = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
-                    const hue = 200 + (dist / 100) * 60;
-                    ctx.fillStyle = `hsla(${hue}, 80%, 80%, ${alpha * 0.8})`;
-                    ctx.beginPath();
-                    ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            }
+            ctx.fillStyle = '#fff';
+            points.forEach(p => {
+                const x = cx + p[0] * scale;
+                const y = cy + p[1] * scale;
+                ctx.fillRect(x, y, 1.5, 1.5); // Sharp points
+            });
+
+            status.innerText = `T:${time} | N:${points.length}`;
 
             if (playing) {
-                if (currentFrame >= fadeOutStart) {
-                    // We are in the transition zone
-                    const alpha = (currentFrame - fadeOutStart) / transitionFrames;
-                    
-                    // 1. Draw current frame fading out
-                    drawPoints(frames[currentFrame], 1.0 - alpha, true);
-                    
-                    // 2. Draw start of cycle fading in
-                    const loopFrame = currentFrame - fadeOutStart;
-                    drawPoints(frames[loopFrame], alpha, false);
-                } else {
-                    // Normal playback
-                    drawPoints(frames[currentFrame], 1.0, true);
-                }
-
-                currentFrame++;
-                if (currentFrame >= frames.length) {
-                    currentFrame = transitionFrames; // Jump to point after fade-in
-                }
-            } else {
-                drawPoints(frames[currentFrame], 1.0, true);
+                currentFrame = (currentFrame + 1) % frames.length;
             }
-
-            status.innerText = `N-Body | Objects: ${simulationData[frames[currentFrame]].length} | Infinite Seamless Loop`;
             requestAnimationFrame(animate);
         }
-
         init();
     </script>
 </body>
