@@ -56,12 +56,13 @@ module physics
 
   recursive subroutine traverse_tree(body, node, G, theta)
     use tree, only: node_t
-    type(body_t), intent(inout) :: body
+    type(body_t), intent(inout), target :: body
     type(node_t), pointer, intent(in) :: node
     real(dp), intent(in) :: G, theta
     real(dp), dimension(3) :: r_vec
     real(dp) :: r_mag_sq, r_mag, force_mag
     integer :: i
+    type(body_t), pointer :: p_body
 
     if (.not. associated(node)) return
     if (node%mass <= 0.0_dp) return
@@ -69,7 +70,8 @@ module physics
     ! Check if it's the same body (if leaf)
     if (node%is_leaf) then
        if (associated(node%body)) then
-          if (loc(body) == loc(node%body)) return
+          p_body => body
+          if (associated(p_body, node%body)) return
        end if
     end if
 

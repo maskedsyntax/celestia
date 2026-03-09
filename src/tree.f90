@@ -29,7 +29,8 @@ module tree
     integer, dimension(8) :: octant_counts
     real(dp), dimension(3) :: new_center
     real(dp) :: new_size
-    type(body_t), pointer, dimension(:), allocatable :: sub_bodies
+    type(body_t), dimension(:), allocatable, target :: sub_bodies
+    type(node_t), pointer :: p_child
 
     n = size(bodies)
     if (n == 0) return
@@ -73,10 +74,11 @@ module tree
           do j = 1, n
              if (octant_map(j) == i) then
                 count = count + 1
-                sub_bodies(count) => bodies(j)
+                sub_bodies(count) = bodies(j)
              end if
           end do
-          call build_tree(node%children(i), sub_bodies)
+          p_child => node%children(i)
+          call build_tree(p_child, sub_bodies)
           deallocate(sub_bodies)
        end if
     end do
@@ -85,17 +87,35 @@ module tree
   recursive subroutine delete_tree(node)
     type(node_t), pointer, intent(inout) :: node
     integer :: i
+    if (.not. associated(node)) return
     if (associated(node%children)) then
        do i = 1, 8
-          call delete_tree(node%children(i))
+          call delete_children(node%children(i))
        end do
        deallocate(node%children)
+       nullify(node%children)
     end if
+    deallocate(node)
+    nullify(node)
   end subroutine delete_tree
+
+  recursive subroutine delete_children(node)
+    type(node_t), intent(inout) :: node
+    integer :: i
+    if (associated(node%children)) then
+       do i = 1, 8
+          call delete_children(node%children(i))
+       end do
+       deallocate(node%children)
+       nullify(node%children)
+    end if
+  end subroutine delete_children
 
   recursive subroutine update_node_mass(node)
     type(node_t), pointer, intent(inout) :: node
     integer :: i
+    type(node_t), pointer :: p_child
+    if (.not. associated(node)) return
     if (node%is_leaf) then
        if (associated(node%body)) then
           node%mass = node%body%mass
@@ -111,7 +131,8 @@ module tree
     node%com = [0.0_dp, 0.0_dp, 0.0_dp]
     
     do i = 1, 8
-       call update_node_mass(node%children(i))
+       p_child => node%children(i)
+       call update_node_mass(p_child)
        if (node%children(i)%mass > 0.0_dp) then
           node%mass = node%mass + node%children(i)%mass
           node%com = node%com + node%children(i)%mass * node%children(i)%com
