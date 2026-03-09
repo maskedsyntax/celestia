@@ -6,11 +6,12 @@ BIN_DIR = bin
 # Source files
 SRCS = $(SRC_DIR)/kinds.f90 \
        $(SRC_DIR)/particle.f90 \
+       $(SRC_DIR)/tree.f90 \
        $(SRC_DIR)/physics.f90 \
        $(SRC_DIR)/main.f90
 
 # Object files (in order of dependency)
-OBJS = kinds.o particle.o physics.o main.o
+OBJS = kinds.o particle.o tree.o physics.o main.o
 
 TARGET = $(BIN_DIR)/celestia
 
@@ -29,7 +30,10 @@ kinds.o: $(SRC_DIR)/kinds.f90
 particle.o: $(SRC_DIR)/particle.f90 kinds.o
 	$(FC) $(FFLAGS) -c $<
 
-physics.o: $(SRC_DIR)/physics.f90 kinds.o particle.o
+tree.o: $(SRC_DIR)/tree.f90 kinds.o particle.o
+	$(FC) $(FFLAGS) -c $<
+
+physics.o: $(SRC_DIR)/physics.f90 kinds.o particle.o tree.o
 	$(FC) $(FFLAGS) -c $<
 
 main.o: $(SRC_DIR)/main.f90 kinds.o particle.o physics.o
