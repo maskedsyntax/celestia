@@ -10,6 +10,8 @@ module physics
   public :: update_velocities
   public :: compute_total_energy
 
+  real(dp), parameter :: eps_sq = 0.1_dp**2 ! Softening length squared
+
   contains
 
   function compute_total_energy(bodies, G) result(total_energy)
@@ -27,10 +29,8 @@ module physics
     do i = 1, n
        kinetic = kinetic + 0.5_dp * bodies(i)%mass * sum(bodies(i)%vel**2)
        do j = i + 1, n
-          r_mag = sqrt(sum((bodies(i)%pos - bodies(j)%pos)**2))
-          if (r_mag > 0.0_dp) then
-             potential = potential - G * bodies(i)%mass * bodies(j)%mass / r_mag
-          end if
+          r_mag = sqrt(sum((bodies(i)%pos - bodies(j)%pos)**2) + eps_sq)
+          potential = potential - G * bodies(i)%mass * bodies(j)%mass / r_mag
        end do
     end do
 
@@ -76,15 +76,13 @@ module physics
     end if
 
     r_vec = node%com - body%pos
-    r_mag_sq = sum(r_vec**2)
+    r_mag_sq = sum(r_vec**2) + eps_sq
     r_mag = sqrt(r_mag_sq)
 
     if (node%is_leaf .or. (node%size / r_mag < theta)) then
        ! Use center of mass of the node
-       if (r_mag_sq > 0.0_dp) then
-          force_mag = G * node%mass / (r_mag_sq * r_mag)
-          body%acc = body%acc + force_mag * r_vec
-       end if
+       force_mag = G * node%mass / (r_mag_sq * r_mag)
+       body%acc = body%acc + force_mag * r_vec
     else
        ! Recurse into children
        do i = 1, 8
@@ -111,19 +109,13 @@ module physics
     do i = 1, n
        do j = i + 1, n
           r_vec = bodies(j)%pos - bodies(i)%pos
-          r_mag_sq = sum(r_vec**2)
+          r_mag_sq = sum(r_vec**2) + eps_sq
           
-          ! Softening could be added here later (good-to-have)
-          if (r_mag_sq > 0.0_dp) then
-             r_mag_inv_cube = 1.0_dp / (sqrt(r_mag_sq) * r_mag_sq)
-             
-             ! Force on body i from body j: F = G * m_i * m_j * r_vec / |r|^3
-             ! Acceleration on body i: a_i = F / m_i = G * m_j * r_vec / |r|^3
-             force_mag = G * r_mag_inv_cube
-             
-             bodies(i)%acc = bodies(i)%acc + force_mag * bodies(j)%mass * r_vec
-             bodies(j)%acc = bodies(j)%acc - force_mag * bodies(i)%mass * r_vec
-          end if
+          r_mag_inv_cube = 1.0_dp / (sqrt(r_mag_sq) * r_mag_sq)
+          force_mag = G * r_mag_inv_cube
+          
+          bodies(i)%acc = bodies(i)%acc + force_mag * bodies(j)%mass * r_vec
+          bodies(j)%acc = bodies(j)%acc - force_mag * bodies(i)%mass * r_vec
        end do
     end do
   end subroutine compute_forces_pairwise
