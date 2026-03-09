@@ -22,17 +22,20 @@
 
         let frames = [];
         let currentFrame = 0;
-        let scale = 2.0;
+        let playing = true;
+        let scale = 1.0;
 
         function init() {
             if (typeof simulationData === 'undefined') {
-                status.innerText = "Error: data.js not found or empty.";
+                status.innerText = "Error: data.js not found. Run 'python3 to_js.py' first.";
                 return;
             }
             frames = Object.keys(simulationData).sort((a, b) => parseFloat(a) - parseFloat(b));
-            status.innerText = `Loaded ${frames.length} frames. Press space to play/pause.`;
             
             window.addEventListener('resize', resize);
+            window.addEventListener('keydown', e => {
+                if (e.code === 'Space') playing = !playing;
+            });
             resize();
             animate();
         }
@@ -42,34 +45,50 @@
             canvas.height = window.innerHeight;
         }
 
-        let playing = true;
-        window.addEventListener('keydown', e => {
-            if (e.code === 'Space') playing = !playing;
-        });
-
         function animate() {
-            ctx.fillStyle = 'black';
+            // Motion blur trail
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const time = frames[currentFrame];
             const points = simulationData[time];
-
-            ctx.fillStyle = 'white';
+            
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
 
+            // Auto-calculate scale based on point distribution
+            let maxDist = 0;
             points.forEach(p => {
+                const d = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
+                if (d > maxDist) maxDist = d;
+            });
+            const targetScale = (Math.min(canvas.width, canvas.height) * 0.4) / (maxDist || 1);
+            scale = scale * 0.95 + targetScale * 0.05; // Smooth scale transition
+
+            points.forEach((p, i) => {
                 const x = cx + p[0] * scale;
                 const y = cy + p[1] * scale;
+                
+                // Color based on distance from center (cool galaxy effect)
+                const dist = Math.sqrt(p[0]*p[0] + p[1]*p[1]);
+                const hue = 200 + (dist / maxDist) * 60; 
+                ctx.fillStyle = `hsla(${hue}, 80%, 80%, 0.8)`;
+                
                 ctx.beginPath();
-                ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                ctx.arc(x, y, 1.2, 0, Math.PI * 2);
                 ctx.fill();
             });
 
-            status.innerText = `Time: ${time} | Frame: ${currentFrame}/${frames.length}`;
+            status.innerText = `Time: ${time} | Objects: ${points.length} | Looping Simulation`;
 
             if (playing) {
-                currentFrame = (currentFrame + 1) % frames.length;
+                currentFrame++;
+                if (currentFrame >= frames.length) {
+                    currentFrame = 0;
+                    // Flash effect on loop restart
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
             }
             requestAnimationFrame(animate);
         }

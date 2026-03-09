@@ -17,7 +17,7 @@ program celestia
   ! Simulation parameters
   G = 1.0_dp
   dt = 0.001_dp
-  total_time = 0.5_dp ! Short run for demo
+  total_time = 5.0_dp ! Increased from 0.5 to 5.0
   steps = int(total_time / dt)
   n = 1000
   theta = 0.5_dp ! Barnes-Hut parameter
@@ -70,9 +70,9 @@ program celestia
      ! Print every 50 steps
      if (mod(s, 50) == 0) then
         energy_current = compute_total_energy(bodies(1:n_active), G)
-        print '(A,I5,A,F10.4,A,F12.6,A,I5)', "Step: ", s, " Time: ", real(s, dp)*dt, &
+        print '(A,I5,A,F8.3,A,F15.4,A,I5)', "Step: ", s, " Time: ", real(s, dp)*dt, &
               " Energy: ", energy_current, " Active: ", n_active
-        ! call export_csv("galaxy_step.csv", bodies(1:n_active), real(s, dp)*dt)
+        call export_csv("galaxy_step.csv", bodies(1:n_active), real(s, dp)*dt)
      end if
   end do
 
