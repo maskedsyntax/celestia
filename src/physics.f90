@@ -8,8 +8,34 @@ module physics
   public :: compute_forces_bh
   public :: update_positions
   public :: update_velocities
+  public :: compute_total_energy
 
   contains
+
+  function compute_total_energy(bodies, G) result(total_energy)
+    type(body_t), dimension(:), intent(in) :: bodies
+    real(dp), intent(in) :: G
+    real(dp) :: total_energy
+    real(dp) :: kinetic, potential
+    real(dp) :: r_mag
+    integer :: i, j, n
+
+    n = size(bodies)
+    kinetic = 0.0_dp
+    potential = 0.0_dp
+
+    do i = 1, n
+       kinetic = kinetic + 0.5_dp * bodies(i)%mass * sum(bodies(i)%vel**2)
+       do j = i + 1, n
+          r_mag = sqrt(sum((bodies(i)%pos - bodies(j)%pos)**2))
+          if (r_mag > 0.0_dp) then
+             potential = potential - G * bodies(i)%mass * bodies(j)%mass / r_mag
+          end if
+       end do
+    end do
+
+    total_energy = kinetic + potential
+  end function compute_total_energy
 
   subroutine compute_forces_bh(bodies, root, G, theta)
     use tree, only: node_t

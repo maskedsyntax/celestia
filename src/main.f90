@@ -1,65 +1,85 @@
 program celestia
   use kinds, only: dp
   use particle, only: body_t
-  use physics, only: compute_forces_pairwise, update_positions, update_velocities
+  use tree, only: node_t, build_tree, delete_tree, update_node_mass
+  use physics, only: compute_forces_bh, update_positions, update_velocities, compute_total_energy
+  use collisions, only: handle_collisions
+  use initial_conditions, only: setup_galaxy
+  use io_utils, only: export_csv
   implicit none
 
-  type(body_t), dimension(:), allocatable :: bodies
+  type(body_t), dimension(:), allocatable, target :: bodies
   real(dp), dimension(:, :), allocatable :: acc_old
-  real(dp) :: G, dt, total_time
-  integer :: i, n, steps, s
+  type(node_t), pointer :: root => null()
+  real(dp) :: G, dt, total_time, theta, energy_initial, energy_current
+  integer :: i, n, steps, s, n_active
 
   ! Simulation parameters
   G = 1.0_dp
-  dt = 0.01_dp
-  total_time = 1.0_dp
+  dt = 0.001_dp
+  total_time = 0.5_dp ! Short run for demo
   steps = int(total_time / dt)
-  n = 2
+  n = 1000
+  theta = 0.5_dp ! Barnes-Hut parameter
 
-  allocate(bodies(n))
+  ! Setup initial conditions (Galaxy)
+  call setup_galaxy(bodies, n, 100.0_dp, 1000.0_dp, G)
+  n_active = n
   allocate(acc_old(3, n))
 
-  ! Initial conditions: Heavy central mass and a smaller orbiting body
-  bodies(1)%mass = 100.0_dp
-  bodies(1)%pos = [0.0_dp, 0.0_dp, 0.0_dp]
-  bodies(1)%vel = [0.0_dp, 0.0_dp, 0.0_dp]
-  bodies(1)%radius = 1.0_dp
+  ! 1. Build tree and initial force
+  allocate(root)
+  root%center = [0.0_dp, 0.0_dp, 0.0_dp]
+  root%size = 500.0_dp ! Large enough to contain all bodies
+  call build_tree(root, bodies(1:n_active))
+  call update_node_mass(root)
+  call compute_forces_bh(bodies(1:n_active), root, G, theta)
+  
+  energy_initial = compute_total_energy(bodies(1:n_active), G)
 
-  bodies(2)%mass = 1.0_dp
-  bodies(2)%pos = [10.0_dp, 0.0_dp, 0.0_dp]
-  ! Orbital velocity v = sqrt(G*M/r)
-  bodies(2)%vel = [0.0_dp, sqrt(G * bodies(1)%mass / 10.0_dp), 0.0_dp]
-  bodies(2)%radius = 0.1_dp
+  print *, "Starting simulation with ", n_active, " bodies..."
+  print *, "Initial Energy: ", energy_initial
 
-  ! Initial force calculation
-  call compute_forces_pairwise(bodies, G)
-
-  print *, "Starting simulation..."
-  print *, "Step: 0, Time: 0.0, Body 2 Pos: ", bodies(2)%pos
-
-  ! Simulation loop using Velocity Verlet
+  ! Simulation loop
   do s = 1, steps
-     ! 1. Store old acceleration (at time t)
-     do i = 1, n
+     ! a. Store old acceleration
+     do i = 1, n_active
         acc_old(:, i) = bodies(i)%acc
      end do
 
-     ! 2. Update positions: r(t+dt) = r(t) + v(t)*dt + 0.5*a(t)*dt^2
-     call update_positions(bodies, dt)
+     ! b. Update positions
+     call update_positions(bodies(1:n_active), dt)
 
-     ! 3. Compute new forces/accelerations: a(t+dt)
-     call compute_forces_pairwise(bodies, G)
+     ! c. Handle collisions
+     call handle_collisions(bodies, n_active)
 
-     ! 4. Update velocities: v(t+dt) = v(t) + 0.5*(a(t) + a(t+dt))*dt
-     call update_velocities(bodies, acc_old, dt)
+     ! d. Rebuild tree for new positions
+     call delete_tree(root)
+     allocate(root)
+     root%center = [0.0_dp, 0.0_dp, 0.0_dp]
+     root%size = 500.0_dp
+     call build_tree(root, bodies(1:n_active))
+     call update_node_mass(root)
 
-     ! Print every 20 steps
-     if (mod(s, 20) == 0) then
-        print *, "Step: ", s, " Time: ", real(s, dp) * dt, " Body 2 Pos: ", bodies(2)%pos
+     ! e. Compute new forces (Barnes-Hut)
+     call compute_forces_bh(bodies(1:n_active), root, G, theta)
+
+     ! f. Update velocities
+     call update_velocities(bodies(1:n_active), acc_old(:, 1:n_active), dt)
+
+     ! Print every 50 steps
+     if (mod(s, 50) == 0) then
+        energy_current = compute_total_energy(bodies(1:n_active), G)
+        print '(A,I5,A,F10.4,A,F12.6,A,I5)', "Step: ", s, " Time: ", real(s, dp)*dt, &
+              " Energy: ", energy_current, " Active: ", n_active
+        ! call export_csv("galaxy_step.csv", bodies(1:n_active), real(s, dp)*dt)
      end if
   end do
 
-  print *, "Simulation completed."
+  print *, "Final Energy: ", compute_total_energy(bodies(1:n_active), G)
+  print *, "Energy Drift: ", (compute_total_energy(bodies(1:n_active), G) - energy_initial) / energy_initial
+
+  call delete_tree(root)
   deallocate(bodies, acc_old)
 
 end program celestia
