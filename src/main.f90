@@ -2,7 +2,7 @@ program celestia
   use kinds, only: dp
   use particle, only: body_t
   use tree, only: node_t, build_tree, delete_tree, update_node_mass
-  use physics, only: compute_forces_bh, update_positions, update_velocities, compute_total_energy
+  use physics, only: compute_forces_bh, update_positions, update_velocities, integrate_rk4, compute_total_energy
   use collisions, only: handle_collisions
   use initial_conditions, only: setup_galaxy, setup_solar_system, setup_collision
   use io_utils, only: export_csv
@@ -13,7 +13,7 @@ program celestia
   type(node_t), pointer :: root => null()
   real(dp) :: G, dt, total_time, theta, energy_initial, energy_current
   integer :: i, n, steps, s, n_active
-  character(len=32) :: arg, val, scenario
+  character(len=32) :: arg, val, scenario, integrator
 
   ! Default parameters
   G = 1.0_dp
@@ -22,6 +22,7 @@ program celestia
   n = 1000
   theta = 0.7_dp
   scenario = "galaxy"
+  integrator = "verlet"
 
   ! Simple CLI Parser
   i = 1
@@ -46,17 +47,21 @@ program celestia
      else if (arg == "--scenario") then
         call get_command_argument(i+1, scenario)
         i = i + 2
+     else if (arg == "--integrator") then
+        call get_command_argument(i+1, integrator)
+        i = i + 2
      else
         print *, "Unknown argument: ", trim(arg)
-        print *, "Usage: ./celestia [--n 1000] [--time 10.0] [--dt 0.001] [--theta 0.5] [--scenario galaxy]"
+        print *, "Usage: ./celestia [--n 1000] [--time 10.0] [--dt 0.001] " // &
+                 "[--theta 0.5] [--scenario galaxy] [--integrator verlet|rk4]"
         stop
      end if
   end do
 
   steps = int(total_time / dt)
 
-  print "(A,I6,A,F8.3,A,F8.4,A,F5.2,A,A)", "Config: N=", n, ", Time=", total_time, &
-        ", DT=", dt, ", Theta=", theta, ", Scenario=", trim(scenario)
+  print "(A,I6,A,F8.3,A,F8.4,A,F5.2,A,A,A,A)", "Config: N=", n, ", Time=", total_time, &
+        ", DT=", dt, ", Theta=", theta, ", Scenario=", trim(scenario), ", Integrator=", trim(integrator)
 
   ! Setup initial conditions
   if (trim(scenario) == "galaxy") then
@@ -89,30 +94,24 @@ program celestia
 
   ! Simulation loop
   do s = 1, steps
-     ! a. Store old acceleration
-     do i = 1, n_active
-        acc_old(:, i) = bodies(i)%acc
-     end do
-
-     ! b. Update positions
-     call update_positions(bodies(1:n_active), dt)
-
-     ! c. Handle collisions
-     call handle_collisions(bodies, n_active)
-
-     ! d. Rebuild tree for new positions
-     call delete_tree(root)
-     allocate(root)
-     root%center = [0.0_dp, 0.0_dp, 0.0_dp]
-     root%size = 500.0_dp
-     call build_tree(root, bodies(1:n_active))
-     call update_node_mass(root)
-
-     ! e. Compute new forces (Barnes-Hut)
-     call compute_forces_bh(bodies(1:n_active), root, G, theta)
-
-     ! f. Update velocities
-     call update_velocities(bodies(1:n_active), acc_old(:, 1:n_active), dt)
+     if (trim(integrator) == "rk4") then
+        call integrate_rk4(bodies(1:n_active), root, G, theta, dt)
+     else
+        ! Default: Velocity Verlet
+        do i = 1, n_active
+           acc_old(:, i) = bodies(i)%acc
+        end do
+        call update_positions(bodies(1:n_active), dt)
+        call handle_collisions(bodies, n_active)
+        call delete_tree(root)
+        allocate(root)
+        root%center = [0.0_dp, 0.0_dp, 0.0_dp]
+        root%size = 500.0_dp
+        call build_tree(root, bodies(1:n_active))
+        call update_node_mass(root)
+        call compute_forces_bh(bodies(1:n_active), root, G, theta)
+        call update_velocities(bodies(1:n_active), acc_old(:, 1:n_active), dt)
+     end if
 
      ! Print every 50 steps
      if (mod(s, 50) == 0) then
