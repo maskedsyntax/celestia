@@ -4,7 +4,7 @@ program celestia
   use tree, only: node_t, build_tree, delete_tree, update_node_mass
   use physics, only: compute_forces_bh, update_positions, update_velocities, compute_total_energy
   use collisions, only: handle_collisions
-  use initial_conditions, only: setup_galaxy
+  use initial_conditions, only: setup_galaxy, setup_solar_system, setup_collision
   use io_utils, only: export_csv
   implicit none
 
@@ -61,8 +61,13 @@ program celestia
   ! Setup initial conditions
   if (trim(scenario) == "galaxy") then
      call setup_galaxy(bodies, n, 100.0_dp, 1000.0_dp, G)
+  else if (trim(scenario) == "solar") then
+     call setup_solar_system(bodies)
+     n = size(bodies)
+  else if (trim(scenario) == "collision") then
+     call setup_collision(bodies, n, G)
   else
-     print *, "Scenario not implemented yet: ", trim(scenario)
+     print *, "Scenario not implemented: ", trim(scenario)
      stop
   end if
 
