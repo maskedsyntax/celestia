@@ -13,17 +13,59 @@ program celestia
   type(node_t), pointer :: root => null()
   real(dp) :: G, dt, total_time, theta, energy_initial, energy_current
   integer :: i, n, steps, s, n_active
+  character(len=32) :: arg, val, scenario
 
-  ! Simulation parameters
+  ! Default parameters
   G = 1.0_dp
-  dt = 0.0005_dp ! Half the time step
-  total_time = 10.0_dp 
-  steps = int(total_time / dt)
+  dt = 0.0005_dp
+  total_time = 5.0_dp 
   n = 1000
-  theta = 0.7_dp ! More stable theta
+  theta = 0.7_dp
+  scenario = "galaxy"
 
-  ! Setup initial conditions (Galaxy)
-  call setup_galaxy(bodies, n, 100.0_dp, 1000.0_dp, G)
+  ! Simple CLI Parser
+  i = 1
+  do while (i <= command_argument_count())
+     call get_command_argument(i, arg)
+     if (arg == "--n") then
+        call get_command_argument(i+1, val)
+        read(val, *) n
+        i = i + 2
+     else if (arg == "--time") then
+        call get_command_argument(i+1, val)
+        read(val, *) total_time
+        i = i + 2
+     else if (arg == "--dt") then
+        call get_command_argument(i+1, val)
+        read(val, *) dt
+        i = i + 2
+     else if (arg == "--theta") then
+        call get_command_argument(i+1, val)
+        read(val, *) theta
+        i = i + 2
+     else if (arg == "--scenario") then
+        call get_command_argument(i+1, scenario)
+        i = i + 2
+     else
+        print *, "Unknown argument: ", trim(arg)
+        print *, "Usage: ./celestia [--n 1000] [--time 10.0] [--dt 0.001] [--theta 0.5] [--scenario galaxy]"
+        stop
+     end if
+  end do
+
+  steps = int(total_time / dt)
+
+  print "(A,I6,A,F8.3,A,F8.4,A,F5.2,A,A)", "Config: N=", n, ", Time=", total_time, &
+        ", DT=", dt, ", Theta=", theta, ", Scenario=", trim(scenario)
+
+  ! Setup initial conditions
+  if (trim(scenario) == "galaxy") then
+     call setup_galaxy(bodies, n, 100.0_dp, 1000.0_dp, G)
+  else
+     print *, "Scenario not implemented yet: ", trim(scenario)
+     stop
+  end if
+
   n_active = n
   allocate(acc_old(3, n))
 
