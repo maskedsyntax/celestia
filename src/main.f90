@@ -93,7 +93,7 @@ program celestia
   print *, "Starting simulation with ", n_active, " bodies..."
   print *, "Initial Energy: ", energy_initial
 
-  call start_timer() ! Total sim timer
+  call start_timer("total") ! Total sim timer
   ! Simulation loop
   do s = 1, steps
      if (trim(integrator) == "rk4") then
@@ -106,7 +106,7 @@ program celestia
         call update_positions(bodies(1:n_active), dt)
         call handle_collisions(bodies, n_active)
         
-        call start_timer()
+        call start_timer("tree")
         call delete_tree(root)
         allocate(root)
         root%center = [0.0_dp, 0.0_dp, 0.0_dp]
@@ -115,7 +115,7 @@ program celestia
         call update_node_mass(root)
         call stop_timer("tree")
 
-        call start_timer()
+        call start_timer("force")
         call compute_forces_bh(bodies(1:n_active), root, G, theta)
         call stop_timer("force")
 
