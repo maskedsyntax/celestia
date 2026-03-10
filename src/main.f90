@@ -6,6 +6,7 @@ program celestia
   use collisions, only: handle_collisions
   use initial_conditions, only: setup_galaxy, setup_solar_system, setup_collision
   use io_utils, only: export_csv
+  use profiler, only: start_timer, stop_timer, print_profile_report
   implicit none
 
   type(body_t), dimension(:), allocatable, target :: bodies
@@ -92,6 +93,7 @@ program celestia
   print *, "Starting simulation with ", n_active, " bodies..."
   print *, "Initial Energy: ", energy_initial
 
+  call start_timer() ! Total sim timer
   ! Simulation loop
   do s = 1, steps
      if (trim(integrator) == "rk4") then
@@ -103,13 +105,20 @@ program celestia
         end do
         call update_positions(bodies(1:n_active), dt)
         call handle_collisions(bodies, n_active)
+        
+        call start_timer()
         call delete_tree(root)
         allocate(root)
         root%center = [0.0_dp, 0.0_dp, 0.0_dp]
         root%size = 500.0_dp
         call build_tree(root, bodies(1:n_active))
         call update_node_mass(root)
+        call stop_timer("tree")
+
+        call start_timer()
         call compute_forces_bh(bodies(1:n_active), root, G, theta)
+        call stop_timer("force")
+
         call update_velocities(bodies(1:n_active), acc_old(:, 1:n_active), dt)
      end if
 
@@ -121,9 +130,12 @@ program celestia
         call export_csv("galaxy_step.csv", bodies(1:n_active), real(s, dp)*dt)
      end if
   end do
+  call stop_timer("total")
 
   print *, "Final Energy: ", compute_total_energy(bodies(1:n_active), G)
   print *, "Energy Drift: ", (compute_total_energy(bodies(1:n_active), G) - energy_initial) / energy_initial
+
+  call print_profile_report()
 
   call delete_tree(root)
   deallocate(bodies, acc_old)
