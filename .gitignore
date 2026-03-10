@@ -1,3 +1,5 @@
 *.o
 *.mod
 bin/
+data.js
+galaxy_step.csv
